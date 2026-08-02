@@ -422,6 +422,48 @@ def admin_update(oid):
         _th.Thread(target=_cn.notify_status_change, args=(order,), daemon=True).start()
     return jsonify({"ok": True})
 
+@app.route("/admin/export")
+def admin_export():
+    """Export all orders as CSV (Excel-compatible, UTF-8 BOM)."""
+    conn = sqlite3.connect(DB); c = conn.cursor()
+    c.execute("SELECT * FROM orders ORDER BY id DESC")
+    rows = c.fetchall(); conn.close()
+    cols = ["id","tracking","name","phone","email","origin","destination","cargo_type",
+            "weight","dims","incoterm","service","desc","status","created_at","updated_at","source"]
+    import io, csv
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(cols)
+    for r in rows:
+        w.writerow(["" if v is None else v for v in r])
+    data = "\ufeff" + buf.getvalue()  # BOM for Excel Persian
+    return data, 200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": "attachment; filename=cargo_orders.csv"
+    }
+
+@app.route("/cron/summary")
+def cron_summary():
+    """Daily/weekly summary trigger. Protected by SUMMARY_KEY. Sends to channel+admin."""
+    key = request.args.get("key", "")
+    secret = os.environ.get("SUMMARY_KEY", "cargo-summary-secret")
+    if key != secret:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    period = request.args.get("period", "daily")
+    days = 1 if period == "daily" else 7
+    since = (datetime.datetime.now() - datetime.timedelta(days=days)).strftime("%Y-%m-%d")
+    conn = sqlite3.connect(DB); c = conn.cursor()
+    c.execute("SELECT * FROM orders WHERE created_at >= ? ORDER BY id DESC", (since,))
+    rows = c.fetchall(); conn.close()
+    cols = ["id","tracking","name","phone","email","origin","destination","cargo_type",
+            "weight","dims","incoterm","service","desc","status","created_at","updated_at","source"]
+    orders = [dict(zip(cols, r)) for r in rows]
+    label = "روزانه" if period == "daily" else "هفتگی"
+    text, markup = _cn.build_summary(orders, label)
+    _cn.send_to_channel(text, markup)
+    _cn.send_to_admin(text, markup)
+    return jsonify({"ok": True, "count": len(orders), "period": period})
+
 if __name__ == "__main__":
     import os as _os2
     port = int(_os2.environ.get("PORT", 5000))
