@@ -12,10 +12,14 @@ app = Flask(__name__)
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE, "orders.db")
 
-# ---- Telegram notify (set via env or edit) ----
+# ---- Telegram notify (shared module) ----
 import os as _os
-BOT_TOKEN = _os.environ.get("TG_TOKEN", "")
+BOT_TOKEN = _os.environ.get("TG_TOKEN", "521451545:AAGcZvTXr3UHAuOIbij7wmuJ8dR-bpds5jI")
 TG_CHAT = _os.environ.get("TG_CHAT", "67391189")
+# import shared notifier
+import cargo_notify as _cn
+_cn.BOT_TOKEN = BOT_TOKEN
+_cn.ADMIN_CHAT = TG_CHAT
 
 def init_db():
     conn = sqlite3.connect(DB); c = conn.cursor()
@@ -31,21 +35,6 @@ init_db()
 
 def new_tracking():
     return "ABN-" + datetime.datetime.now().strftime("%Y%m") + "-" + secrets.token_hex(3).upper()
-
-def tg_notify(text):
-    if not BOT_TOKEN:
-        return
-    def _send():
-        try:
-            import urllib.request, urllib.parse
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-            data = {"chat_id": TG_CHAT, "text": text, "parse_mode": "HTML"}
-            req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode(),
-                  headers={"User-Agent":"cargo-system"})
-            urllib.request.urlopen(req, timeout=5)
-        except Exception as e:
-            print("TG notify failed:", e)
-    threading.Thread(target=_send, daemon=True).start()
 
 # ===== Embedded templates =====
 LANDING = r'''<!DOCTYPE html>
@@ -377,9 +366,16 @@ def submit():
          f.get("weight") or 0, f.get("dims"), f.get("incoterm"),
          f.get("service"), f.get("desc"), "ثبت شده", now, now))
     conn.commit(); conn.close()
-    tg_notify(f"📦 <b>سفارش بار جدید</b>\nشماره رهگیری: <code>{tracking}</code>\n"
-              f"نام: {f.get('name')}\nمبدأ: {f.get('origin')} → مقصد: {f.get('destination')}\n"
-              f"نوع: {f.get('cargo_type')} | وزن: {f.get('weight')} کیلو")
+    order = {
+        "tracking": tracking, "name": f.get("name"), "phone": f.get("phone"),
+        "email": f.get("email"), "origin": f.get("origin"), "destination": f.get("destination"),
+        "cargo_type": f.get("cargo_type"), "weight": f.get("weight") or 0, "dims": f.get("dims"),
+        "incoterm": f.get("incoterm"), "service": f.get("service"), "desc": f.get("desc"),
+        "status": "ثبت شده", "created_at": now,
+    }
+    # Dual notify (channel + admin) via shared module
+    import threading as _th
+    _th.Thread(target=_cn.notify_new_order, args=(order, "وب‌سایت"), daemon=True).start()
     return jsonify({"ok": True, "tracking": tracking})
 
 @app.route("/track/<tracking>")
@@ -415,8 +411,15 @@ def admin_update(oid):
     status = request.form.get("status")
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     conn = sqlite3.connect(DB); c = conn.cursor()
+    c.execute("SELECT tracking,name,origin,destination,cargo_type,weight FROM orders WHERE id=?", (oid,))
+    row = c.fetchone()
     c.execute("UPDATE orders SET status=?, updated_at=? WHERE id=?", (status, now, oid))
     conn.commit(); conn.close()
+    if row:
+        order = {"tracking": row[0], "name": row[1], "origin": row[2], "destination": row[3],
+                 "cargo_type": row[4], "weight": row[5], "status": status}
+        import threading as _th
+        _th.Thread(target=_cn.notify_status_change, args=(order,), daemon=True).start()
     return jsonify({"ok": True})
 
 if __name__ == "__main__":
