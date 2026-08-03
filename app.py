@@ -44,6 +44,41 @@ LANDING = r'''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>خدمات بار هوایی (فریت کارگو) | آژانس هواپیمایی آبان تور</title>
 <meta name="description" content="ارسال ایمن و سریع بار تجاری و شخصی به سراسر جهان با آژانس هواپیمایی آبان تور. ثبت آنلاین سفارش و پیگیری لحظه‌ای.">
+<meta name="keywords" content="فریت کارگو, بار هوایی, ارسال بار, Freight, Air Cargo, بار تجاری, بار شخصی, ترخیص گمرکی, حمل بار بین‌الملل, آبان تور, کارگو تهران, بار به خارج, بار از خارج">
+<meta name="author" content="آژانس هواپیمایی آبان تور">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cargo-abantour.onrender.com/">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fa_IR">
+<meta property="og:site_name" content="فریت کارگو آبان تور">
+<meta property="og:title" content="فریت کارگو | خدمات بار هوایی آبان تور — ارسال بار به سراسر جهان">
+<meta property="og:description" content="ارسال ایمن و سریع بار تجاری و شخصی به سراسر جهان با آبان تور. استعلام رایگان، بسته‌بندی استاندارد، ترخیص گمرکی و پیگیری لحظه‌ای.">
+<meta property="og:url" content="https://cargo-abantour.onrender.com/">
+<meta property="og:image" content="https://abantour.ir/favicon.ico">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="فریت کارگو | خدمات بار هوایی آبان تور">
+<meta name="twitter:description" content="ارسال ایمن و سریع بار تجاری و شخصی به سراسر جهان با پشتیبانی ۲۴ ساعته آبان تور.">
+<meta name="twitter:image" content="https://abantour.ir/favicon.ico">
+<!-- JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MovingCompany",
+  "name": "فریت کارگو آبان تور",
+  "alternateName": "آژانس هواپیمایی آبان تور - بخش بار هوایی",
+  "url": "https://cargo-abantour.onrender.com/",
+  "image": "https://abantour.ir/favicon.ico",
+  "description": "خدمات حرفه‌ای فریت کارگو و بار هوایی شامل بار تجاری، بار شخصی، ترانزیت بین‌الملل، بار حساس و ترخیص گمرکی.",
+  "telephone": "+982155009429",
+  "email": "abantour.agency@gmail.com",
+  "address": {"@type": "PostalAddress", "streetAddress": "خیابان شهید رجایی، پلاک ۳۲۰", "addressLocality": "تهران", "addressCountry": "IR"},
+  "areaServed": "Worldwide",
+  "parentOrganization": {"@type": "TravelAgency", "name": "آژانس هواپیمایی آبان تور", "url": "https://abantour.ir"},
+  "sameAs": ["https://t.me/abantour_agency", "https://www.instagram.com/abantour_agency", "https://www.aparat.com/abantour"]
+}
+</script>
 <style>
   @font-face{font-family:'Vazirmatn';font-weight:400;src:url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');font-display:swap;}
   @font-face{font-family:'Vazirmatn';font-weight:700;src:url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');font-display:swap;}
