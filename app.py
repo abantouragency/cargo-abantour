@@ -689,3 +689,5 @@ if __name__ == "__main__":
     import os as _os2
     port = int(_os2.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
+# trigger deploy: verify healthy IP allocation
