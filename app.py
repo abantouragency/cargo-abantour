@@ -320,13 +320,6 @@ LANDING = r'''<!DOCTYPE html>
   <a class="back" href="https://abantour.ir">← بازگشت به سایت اصلی</a>
 </header>
 <div class="wrap">
-  <section class="hero">
-    <div class="ico">📦✈️</div>
-    <h1>خدمات بار هوایی (فریت کارگو)</h1>
-    <p>ارسال ایمن و سریع بار تجاری و شخصی به سراسر جهان. استعلام رایگان، بسته‌بندی استاندارد، ترخیص و پیگیری تا لحظه تحویل — با پشتیبانی ۲۴ ساعته آبان تور.</p>
-    <a class="btn" href="#order">ثبت آنلاین سفارش بار</a>
-    <a class="btn ghost" href="#track">پیگیری بار</a>
-  </section>
   <section class="section">
     <h2>خدمات ما</h2>
     <div class="grid">
