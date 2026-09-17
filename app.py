@@ -47,7 +47,7 @@ LANDING = r'''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>خدمات بار هوایی (فریت کارگو) | آژانس هواپیمایی آبان تور</title>
 <meta name="description" content="فریت کارگو آبان تور: ارسال ایمن و سریع بار تجاری و شخصی به سراسر جهان. استعلام رایگان، بستهبندی استاندارد، ترخیص گمرکی و پیگیری لحظهای. پشتیبانی ۲۴ ساعته.">
-<meta name="keywords" content="فریت کارگو, بار هوایی, ارسال بار, Freight, Air Cargo, بار تجاری, بار شخصی, ترخیص گمرکی, حمل بار بین‌الملل, آبان تور, کارگو تهران, بار به خارج, بار از خارج">
+<meta name="keywords" content="فریت کارگو, بار هوایی, ارسال بار, Freight, Air Cargo, بار تجاری, بار شخصی, ترخیص گمرکی, حمل بار بینالملل, آبان تور, کارگو تهران, بار به خارج, بار از خارج">
 <meta name="author" content="آژانس هواپیمایی آبان تور">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://cargo.abantour.ir/">
