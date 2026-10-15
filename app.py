@@ -31,7 +31,15 @@ def init_db():
         tracking TEXT UNIQUE, name TEXT, phone TEXT, email TEXT,
         origin TEXT, destination TEXT, cargo_type TEXT, weight REAL, dims TEXT,
         incoterm TEXT, service TEXT, desc TEXT, status TEXT DEFAULT 'ثبت شده',
-        created_at TEXT, updated_at TEXT)''')
+        created_at TEXT, updated_at TEXT, source TEXT DEFAULT 'direct')''')
+    # Backward-compatible migration for SQLite files created before attribution was added.
+    columns = {row[1] for row in c.execute("PRAGMA table_info(orders)")}
+    if "source" not in columns:
+        try:
+            c.execute("ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'direct'")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
     conn.commit(); conn.close()
 
 init_db()
@@ -353,6 +361,7 @@ LANDING = r'''<!DOCTYPE html>
   <section class="section" id="order">
     <h2>ثبت آنلاین سفارش بار</h2>
     <form id="orderForm">
+      <input type="hidden" name="source" id="sourceField" value="direct">
       <div class="row">
         <div><label>نام و نام خانوادگی *</label><input name="name" required></div>
         <div><label>شماره تماس *</label><input name="phone" required dir="ltr"></div>
@@ -405,6 +414,14 @@ LANDING = r'''<!DOCTYPE html>
     </form>
   </section>
   <section class="section">
+    <h2>راهنمای فریت بار و کارگو</h2>
+    <div class="grid">
+      <div class="card"><h3><a href="/guides/personal-cargo">فریت بار شخصی</a></h3><p>آشنایی با مراحل ارسال وسایل شخصی و اطلاعات لازم برای استعلام.</p></div>
+      <div class="card"><h3><a href="/guides/commercial-cargo">ارسال بار تجاری</a></h3><p>چه جزئیاتی را برای بررسی و برآورد بار تجاری آماده کنید.</p></div>
+      <div class="card"><h3><a href="/guides/cargo-documents">مدارک و اطلاعات بار</a></h3><p>چک‌لیست اولیه؛ مدارک نهایی به کالا و مسیر بستگی دارد.</p></div>
+    </div>
+  </section>
+  <section class="section">
     <h2>تماس با ما</h2>
     <p>📞 تلفن: <a href="tel:02155009429" style="color:#0b1e3a;">۰۲۱۵۵۰۰۹۴۲۹</a> &nbsp;|&nbsp; 📱 موبایل: ۰۹۳۶۲۰۱۸۱۷۸</p>
     <p>✈️ تلگرام: <a href="https://t.me/Abantourbot" style="color:#0b1e3a;">@Abantourbot</a> &nbsp;|&nbsp; 🌐 سایت: <a href="https://abantour.ir" style="color:#0b1e3a;">abantour.ir</a></p>
@@ -412,9 +429,14 @@ LANDING = r'''<!DOCTYPE html>
 </div>
 <footer>
   کلیه حقوق محفوظ است &copy; آژانس هواپیمایی آبان تور | سامانه بار هوایی (فریت کارگو)<br>
-  پشتیبانی ۲۴ ساعته: ۰۲۱۵۵۰۰۹۴۲۹
+  پشتیبانی ۲۴ ساعته: ۰۲۱۵۵۰۰۹۴۲۹<br>
+  طراحی و توسعه توسط هلدینگ تتیسا | Designed &amp; Developed by Tetisa Holding
 </footer>
 <script>
+const approvedSources = new Set(['direct','google','instagram','telegram','bale','partner','yektanet','guide','other']);
+const requestedSource = new URLSearchParams(window.location.search).get('utm_source');
+const sourceValue = (requestedSource || 'direct').toLowerCase();
+document.getElementById('sourceField').value = approvedSources.has(sourceValue) ? sourceValue : 'other';
 document.getElementById('orderForm').addEventListener('submit', async function(e){
   e.preventDefault();
   const fd = new FormData(this);
@@ -528,7 +550,7 @@ ADMIN = r'''<!DOCTYPE html>
   </div>
   {% if orders %}
   <table>
-    <tr><th>رهگیری</th><th>نام</th><th>تماس</th><th>مسیر</th><th>نوع</th><th>وزن</th><th>وضعیت</th><th>تغییر وضعیت</th></tr>
+    <tr><th>رهگیری</th><th>نام</th><th>تماس</th><th>مسیر</th><th>نوع</th><th>وزن</th><th>منبع درخواست</th><th>وضعیت</th><th>تغییر وضعیت</th></tr>
     {% for o in orders %}
     <tr>
       <td><b>{{ o.tracking }}</b><br><small style="color:#5a6a7e;">{{ o.created_at }}</small></td>
@@ -537,6 +559,7 @@ ADMIN = r'''<!DOCTYPE html>
       <td>{{ o.origin }} → {{ o.destination }}</td>
       <td>{{ o.cargo_type }}</td>
       <td>{{ o.weight }}kg</td>
+      <td>{{ o.source or 'نامشخص' }}</td>
       <td><span class="st" style="background:#e8f5e9;color:#1b5e20;">{{ o.status }}</span></td>
       <td>
         <form onsubmit="event.preventDefault();updateStatus({{ o.id }}, this.querySelector('select').value)">
@@ -569,6 +592,83 @@ async function updateStatus(id, status){
 
 from flask import render_template_string
 
+GUIDE_TEMPLATE = r'''<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ guide.title }}</title>
+<meta name="description" content="{{ guide.description }}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://cargo.abantour.ir/guides/{{ slug }}">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="fa_IR">
+<meta property="og:title" content="{{ guide.title }}">
+<meta property="og:description" content="{{ guide.description }}">
+<meta property="og:url" content="https://cargo.abantour.ir/guides/{{ slug }}">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef2f7;color:#1d2733;font-family:Vazirmatn,'Segoe UI',Tahoma,sans-serif;line-height:2}.head,footer{background:#0b1e3a;color:#fff;padding:18px 24px}.head a,footer a{color:#c9a227;text-decoration:none}.wrap{max-width:900px;margin:28px auto;padding:0 18px}.paper{background:#fff;border-radius:16px;padding:clamp(20px,5vw,42px);box-shadow:0 4px 18px rgba(11,30,58,.07)}h1,h2{color:#0b1e3a}h1{font-size:clamp(24px,4vw,34px);line-height:1.6}.crumb{color:#65758a;font-size:14px}.lead{font-size:17px;color:#43546a}.cta{display:inline-block;background:#c9a227;color:#0b1e3a;padding:12px 22px;border-radius:9px;text-decoration:none;font-weight:700;margin:8px 0}.note{background:#fff8df;border-right:4px solid #c9a227;padding:12px 16px}.faq{border-top:1px solid #e5eaf0;padding:12px 0}.foot{text-align:center;margin-top:20px;font-size:13px;color:#9fb2cd}
+</style>
+</head>
+<body>
+<header class="head"><strong>آبان تور | فریت کارگو</strong> <span>　</span><a href="/">صفحه اصلی</a></header>
+<main class="wrap"><article class="paper">
+<nav class="crumb"><a href="/">خانه</a> ← راهنمای فریت بار</nav>
+<h1>{{ guide.h1 }}</h1><p class="lead">{{ guide.intro }}</p>
+{% for section in guide.sections %}<section><h2>{{ section.title }}</h2><p>{{ section.body }}</p><ul>{% for item in section['items'] %}<li>{{ item }}</li>{% endfor %}</ul></section>{% endfor %}
+<p class="note">شرایط نهایی پذیرش، مدارک، مسیر و هزینه به نوع کالا، وزن و ابعاد، کشور مبدأ و مقصد و ضوابط ایرلاین/گمرک بستگی دارد. پیش از ارسال، جزئیات را با اپراتور آبان تور بررسی کنید.</p>
+<h2>پرسش‌های متداول</h2>
+{% for item in guide.faq %}<div class="faq"><strong>{{ item.q }}</strong><p>{{ item.a }}</p></div>{% endfor %}
+<a class="cta" href="/?utm_source=guide&amp;utm_medium=organic-internal&amp;utm_campaign={{ slug }}#order">استعلام و ثبت درخواست بار</a>
+<p><a href="https://t.me/Abantourbot">گفت‌وگو با اپراتور در تلگرام</a>　|　<a href="tel:02155009429">تماس: ۰۲۱۵۵۰۰۹۴۲۹</a></p>
+</article><footer class="foot">طراحی و توسعه توسط هلدینگ تتیسا | Designed &amp; Developed by Tetisa Holding</footer></main>
+</body></html>'''
+
+GUIDES = {
+    "personal-cargo": {
+        "title": "فریت بار شخصی چیست؟ مراحل و اطلاعات استعلام | آبان تور",
+        "description": "راهنمای فریت بار شخصی: اطلاعات لازم برای برآورد هزینه، بسته‌بندی و پیگیری بار را آماده کنید و پیش از ارسال، شرایط مسیر و کالا را با اپراتور بررسی کنید.",
+        "h1": "فریت بار شخصی؛ از استعلام تا پیگیری",
+        "intro": "فریت بار شخصی برای ارسال وسایل غیرتجاری یا لوازم شخصی از راه حمل هوایی به‌کار می‌رود. امکان ارسال هر کالا و شرایط آن باید برای مسیر و مقصد موردنظر جداگانه تأیید شود.",
+        "sections": [
+            {"title": "برای استعلام چه اطلاعاتی آماده کنم؟", "body": "هرچه شرح بار دقیق‌تر باشد، بررسی اولیه و اعلام هزینه قابل اتکاتر خواهد بود.", "items": ["شهر مبدأ و مقصد و زمان تقریبی ارسال", "شرح روشن محتویات هر بسته و تعداد بسته‌ها", "وزن تقریبی و ابعاد بسته‌بندی‌شده هر قطعه", "ارزش تقریبی کالا و اطلاعات تماس برای پیگیری"]},
+            {"title": "بسته‌بندی و پذیرش بار", "body": "بسته‌بندی باید با ماهیت کالا و روش جابه‌جایی هماهنگ باشد. پیش از تحویل، درباره اقلام شکننده، باتری‌دار، مایع یا محدودیت‌دار از اپراتور استعلام بگیرید.", "items": ["از محتویات و تعداد بسته‌ها فهرست تهیه کنید.", "برای اقلام شکننده، نوع محافظت را پیشاپیش اعلام کنید.", "تا زمان تأیید اپراتور، اقلام نامشخص یا محدودشده را ارسال نکنید."]}
+        ],
+        "faq": [
+            {"q": "هزینه فریت بار شخصی چطور مشخص می‌شود؟", "a": "وزن و ابعاد، نوع کالا، مبدأ، مقصد و خدمات درخواستی در برآورد اثر دارند؛ مبلغ نهایی پس از بررسی اطلاعات و تأیید اپراتور اعلام می‌شود."},
+            {"q": "برای استعلام باید بار را تحویل بدهم؟", "a": "برای استعلام اولیه، ابتدا اطلاعات کالا و بسته‌ها را از طریق فرم یا تماس ارسال کنید؛ روش و محل تحویل را اپراتور هماهنگ می‌کند."}
+        ]
+    },
+    "commercial-cargo": {
+        "title": "ارسال بار تجاری هوایی؛ چک‌لیست استعلام | آبان تور",
+        "description": "راهنمای استعلام بار تجاری هوایی: شرح کالا، وزن، ابعاد، تعداد بسته‌ها و اسناد موجود را آماده کنید؛ جزئیات پذیرش و ترخیص با توجه به مسیر تأیید می‌شود.",
+        "h1": "ارسال بار تجاری هوایی؛ اطلاعات لازم برای شروع",
+        "intro": "برای بررسی بار تجاری، ابتدا باید ماهیت محموله، بسته‌بندی و مسیر حمل روشن باشد. این راهنما چک‌لیست اولیه است و جایگزین بررسی مقررات کالا یا تأییدیه ایرلاین و گمرک نیست.",
+        "sections": [
+            {"title": "مشخصات محموله را دقیق ثبت کنید", "body": "اطلاعات اولیه کمک می‌کند امکان حمل و خدمات موردنیاز بررسی شود.", "items": ["شرح کالا و کاربرد آن، تعداد و ارزش تقریبی", "وزن ناخالص و ابعاد نهایی بسته‌ها", "شهر یا فرودگاه مبدأ و مقصد و زمان‌بندی مدنظر", "نوع بسته‌بندی و هر ویژگی حساس یا محدودکننده"]},
+            {"title": "اسناد تجاری و خدمات موردنیاز", "body": "فهرست مدارک و الزامات با نوع کالا و مسیر تغییر می‌کند. اسناد موجود را برای بررسی ارائه دهید و قبل از آماده‌سازی نهایی، نیازمندی‌های همان مسیر را تأیید کنید.", "items": ["پیش‌فاکتور یا فاکتور تجاری در صورت وجود", "فهرست بسته‌بندی (Packing List) در صورت وجود", "اطلاعات گمرکی یا طبقه‌بندی کالا در صورت دسترسی", "نیاز به بسته‌بندی، ترخیص یا صدور بارنامه هوایی (AWB)"]}
+        ],
+        "faq": [
+            {"q": "آیا همه کالاها را می‌توان با هواپیما فرستاد؟", "a": "خیر. محدودیت‌ها به نوع کالا، ایرلاین، کشورها و مقررات جاری بستگی دارد؛ پذیرش باید پیش از ارسال تأیید شود."},
+            {"q": "آیا هزینه یا زمان حمل در این صفحه قابل اعلام است؟", "a": "خیر؛ برای برآورد باید مسیر، مشخصات محموله و خدمات موردنیاز بررسی شود. از فرم استعلام استفاده کنید."}
+        ]
+    },
+    "cargo-documents": {
+        "title": "مدارک و اطلاعات لازم برای فریت بار | آبان تور",
+        "description": "چک‌لیست اولیه مدارک فریت بار و کارگو: اطلاعات فرستنده، گیرنده، شرح و ابعاد بار و اسناد موجود را آماده کنید؛ الزامات هر مسیر باید جداگانه تأیید شود.",
+        "h1": "مدارک و اطلاعات اولیه برای استعلام فریت بار",
+        "intro": "مدارک لازم یکسان نیست و به کالا، نقش فرستنده، مبدأ، مقصد و نوع سرویس بستگی دارد. این فهرست برای آماده‌سازی استعلام اولیه است؛ پیش از ارسال، فهرست نهایی را از اپراتور بگیرید.",
+        "sections": [
+            {"title": "اطلاعات پایه برای استعلام", "body": "پیش از تماس یا ثبت درخواست، موارد زیر را تا حد امکان آماده کنید.", "items": ["نام و راه ارتباطی فرستنده و گیرنده", "شهر مبدأ و مقصد و نشانی‌های موردنیاز سرویس", "شرح دقیق محتویات، تعداد، وزن و ابعاد هر بسته", "ارزش کالا و زمان مورد انتظار برای ارسال"]},
+            {"title": "اسنادی که ممکن است برای بررسی نیاز شوند", "body": "بسته به کالا و مسیر، اپراتور ممکن است اسناد تکمیلی درخواست کند. وجود یک سند در این فهرست به معنی الزام قطعی برای همه محموله‌ها نیست.", "items": ["مدارک هویتی یا اطلاعات شرکت، متناسب با نوع فرستنده", "فاکتور یا مدرک ارزش کالا در صورت نیاز", "فهرست بسته‌بندی برای محموله‌های چندبسته‌ای یا تجاری", "مجوزها یا گواهی‌های تخصصی، فقط در صورت الزام برای کالای مربوطه"]}
+        ],
+        "faq": [
+            {"q": "آیا این فهرست برای همه کشورها کافی است؟", "a": "خیر؛ مقررات کشور مبدأ، مقصد، نوع کالا و ایرلاین متفاوت است. فهرست نهایی را برای محموله خود از اپراتور دریافت کنید."},
+            {"q": "اگر وزن یا ابعاد دقیق را ندانم چه کنم؟", "a": "مقادیر تقریبی را در درخواست ثبت کنید و پیش از نهایی‌کردن برآورد، اندازه و وزن بسته‌بندی‌شده را تأیید کنید."}
+        ]
+    }
+}
+
 @app.before_request
 def protect_admin_routes():
     """Require explicit Render secrets before exposing any admin data or actions."""
@@ -598,6 +698,13 @@ def protect_admin_routes():
 def index():
     return render_template_string(LANDING, abn_logo=ABN_LOGO_DATA_URI)
 
+@app.route("/guides/<slug>")
+def guide_page(slug):
+    guide = GUIDES.get(slug)
+    if not guide:
+        return "راهنما پیدا نشد", 404
+    return render_template_string(GUIDE_TEMPLATE, guide=guide, slug=slug)
+
 @app.route("/robots.txt")
 def robots_txt():
     """Serve robots.txt for search engines."""
@@ -619,6 +726,9 @@ def sitemap_xml():
     pages = [
         ("https://cargo.abantour.ir/", "1.0"),
         ("https://cargo.abantour.ir/track", "0.8"),
+        ("https://cargo.abantour.ir/guides/personal-cargo", "0.8"),
+        ("https://cargo.abantour.ir/guides/commercial-cargo", "0.8"),
+        ("https://cargo.abantour.ir/guides/cargo-documents", "0.8"),
     ]
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -632,27 +742,31 @@ def sitemap_xml():
 @app.route("/submit", methods=["POST"])
 def submit():
     f = request.form
+    allowed_sources = {"direct", "google", "instagram", "telegram", "bale", "partner", "yektanet", "guide", "other"}
+    source = (f.get("source") or "direct").strip().lower()
+    if source not in allowed_sources:
+        source = "other"
     tracking = new_tracking()
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     conn = sqlite3.connect(DB); c = conn.cursor()
     c.execute("""INSERT INTO orders (tracking,name,phone,email,origin,destination,
-        cargo_type,weight,dims,incoterm,service,desc,status,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        cargo_type,weight,dims,incoterm,service,desc,status,created_at,updated_at,source)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (tracking, f.get("name"), f.get("phone"), f.get("email"),
          f.get("origin"), f.get("destination"), f.get("cargo_type"),
          f.get("weight") or 0, f.get("dims"), f.get("incoterm"),
-         f.get("service"), f.get("desc"), "ثبت شده", now, now))
+         f.get("service"), f.get("desc"), "ثبت شده", now, now, source))
     conn.commit(); conn.close()
     order = {
         "tracking": tracking, "name": f.get("name"), "phone": f.get("phone"),
         "email": f.get("email"), "origin": f.get("origin"), "destination": f.get("destination"),
         "cargo_type": f.get("cargo_type"), "weight": f.get("weight") or 0, "dims": f.get("dims"),
         "incoterm": f.get("incoterm"), "service": f.get("service"), "desc": f.get("desc"),
-        "status": "ثبت شده", "created_at": now,
+        "status": "ثبت شده", "created_at": now, "source": source,
     }
     # Dual notify (channel + admin) via shared module
     import threading as _th
-    _th.Thread(target=_cn.notify_new_order, args=(order, "وب‌سایت"), daemon=True).start()
+    _th.Thread(target=_cn.notify_new_order, args=(order, source), daemon=True).start()
     return jsonify({"ok": True, "tracking": tracking})
 
 @app.route("/track/<tracking>")
