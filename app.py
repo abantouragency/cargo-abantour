@@ -705,6 +705,15 @@ def guide_page(slug):
         return "راهنما پیدا نشد", 404
     return render_template_string(GUIDE_TEMPLATE, guide=guide, slug=slug)
 
+@app.route("/google60e790450d76530b.html")
+def google_site_verification():
+    """Google Search Console HTML file verification endpoint."""
+    return Response(
+        "google-site-verification: google60e790450d76530b.html",
+        status=200,
+        content_type="text/html; charset=utf-8",
+    )
+
 @app.route("/robots.txt")
 def robots_txt():
     """Serve robots.txt for search engines."""
