@@ -5,8 +5,8 @@ SINGLE-FILE Flask app: landing + order submit + tracking + admin.
 DB: SQLite (orders.db). No external deps beyond Flask + stdlib.
 Templates are embedded as strings so no templates/ folder is needed.
 """
-import os, sqlite3, json, secrets, datetime, threading
-from flask import Flask, request, redirect, url_for, jsonify
+import os, sqlite3, json, secrets, datetime, threading, hmac
+from flask import Flask, request, redirect, url_for, jsonify, Response
 
 app = Flask(__name__)
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -568,6 +568,31 @@ async function updateStatus(id, status){
 </html>'''
 
 from flask import render_template_string
+
+@app.before_request
+def protect_admin_routes():
+    """Require explicit Render secrets before exposing any admin data or actions."""
+    if not request.path.startswith("/admin"):
+        return None
+    expected_user = os.environ.get("ADMIN_USER", "")
+    expected_password = os.environ.get("ADMIN_PASSWORD", "")
+    if not expected_user or not expected_password:
+        return "Admin access is not configured.", 503
+    auth = request.authorization
+    valid = bool(
+        auth
+        and auth.username
+        and auth.password
+        and hmac.compare_digest(auth.username, expected_user)
+        and hmac.compare_digest(auth.password, expected_password)
+    )
+    if not valid:
+        return Response(
+            "Authentication required.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Aban Tour Cargo Admin", charset="UTF-8"'},
+        )
+    return None
 
 @app.route("/")
 def index():
